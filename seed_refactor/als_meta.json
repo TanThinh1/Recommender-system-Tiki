@@ -1,0 +1,63 @@
+{
+  "trained_at": "2026-05-16T22:15:35.884703",
+  "model_version": "v5",
+  "n_users": 20697,
+  "n_products": 1836,
+  "n_interactions": 48454,
+  "n_train_ints": 27472,
+  "n_test_ints": 20764,
+  "n_eval_users": 20697,
+  "split_strategy": "time_based",
+  "include_sources": [
+    "real_review"
+  ],
+  "include_actions": [
+    "purchase",
+    "add_to_cart",
+    "click",
+    "view"
+  ],
+  "hyperparams": {
+    "factors": 96,
+    "iterations": 100,
+    "regularization": 0.05,
+    "alpha": 80
+  },
+  "weighting": {
+    "use_log_freq": true,
+    "use_idf": true,
+    "use_temporal_decay": true,
+    "decay_half_life_days": 90,
+    "min_interactions": 2,
+    "zero_score_threshold": 0.05,
+    "split_strategy": "time_based",
+    "test_ratio": 0.2,
+    "action_confidence": {
+      "purchase": 10.0,
+      "add_to_cart": 5.0,
+      "click": 2.0,
+      "view": 1.0
+    }
+  },
+  "metrics": {
+    "precision@5": 0.0996,
+    "precision@10": 0.0525,
+    "precision@20": 0.029,
+    "recall@5": 0.4972,
+    "recall@10": 0.5237,
+    "recall@20": 0.5798,
+    "ndcg@5": 0.4273,
+    "ndcg@10": 0.4359,
+    "ndcg@20": 0.45,
+    "hit_rate@5": 0.4976,
+    "hit_rate@10": 0.524,
+    "hit_rate@20": 0.5801,
+    "coverage@5": 0.3873,
+    "coverage@10": 0.4058,
+    "coverage@20": 0.4319,
+    "composite@5": 0.3242,
+    "composite@10": 0.3177,
+    "composite@20": 0.3336
+  },
+  "popular_items_count": 100
+}

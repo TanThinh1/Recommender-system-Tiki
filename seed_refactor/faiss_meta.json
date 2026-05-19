@@ -1,0 +1,8 @@
+{
+  "index_type": "IndexFlatIP",
+  "n_vectors": 5400,
+  "dim": 384,
+  "nlist": null,
+  "nprobe": null,
+  "normalize": true
+}

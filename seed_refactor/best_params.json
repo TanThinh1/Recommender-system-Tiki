@@ -1,0 +1,16 @@
+{
+  "factors": 96,
+  "alpha": 80,
+  "reg": 0.05,
+  "_meta": {
+    "grid_version": "v3",
+    "idf": true,
+    "temporal_decay": true,
+    "log_freq": true,
+    "split": "time_based",
+    "test_ratio": 0.2,
+    "composite_best": 0.026,
+    "n_train_users": 16921,
+    "n_train_products": 1289
+  }
+}

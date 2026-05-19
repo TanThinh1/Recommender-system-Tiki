@@ -1,30 +1,21 @@
-"""
-config.py — Toàn bộ hằng số, cấu hình danh mục, và tiện ích log.
-"""
-
 import os
 import re
 from datetime import datetime
 
-# ══════════════════════════════════════════════════════════════════════
-# ⚙️  HẰNG SỐ CHÍNH
-# ══════════════════════════════════════════════════════════════════════
-TARGET_TOTAL = 5_400
-MAX_PAGES_PER_CAT = 3
-MAX_REVIEW_PAGES_PER_PROD = 5          # FIX BUG-05: đổi tên cho rõ
-MIN_REVIEWS_FOR_USER = 1
-CART_WEIGHT_RATIO = 0.65               # add_to_cart weight = purchase_weight × 0.65
+# HẰNG SỐ CHÍNH
+TARGET_TOTAL = 5_400 
+MAX_PAGES_PER_CAT = 3 
+MAX_REVIEW_PAGES_PER_PROD = 5 # Giới hạn số trang review để tránh crawl quá sâu
+MIN_REVIEWS_FOR_USER = 1 # Người dùng phải có ít nhất 1 review để được tính
+CART_WEIGHT_RATIO = 0.65 # Tỷ lệ trọng số giữa cart và purchase (0.65 nghĩa là cart được tính 65% so với purchase)
 
-# FIX DESIGN-03: normalize giá trị env đúng cách
-_headless_env = os.getenv("HEADLESS", "1").lower()
-HEADLESS = _headless_env not in ("0", "false", "no")
+_headless_env = os.getenv("HEADLESS", "1").lower() # Mặc định là headless mode, chỉ tắt nếu biến môi trường HEADLESS được đặt thành "0", "false", hoặc "no" (không phân biệt chữ hoa thường)
+HEADLESS = _headless_env not in ("0", "false", "no") # True nếu ở chế độ headless, False nếu không
 
 # Đặt None để không giới hạn, hoặc đặt số nguyên để cap
-MAX_INTERACTIONS: int | None = None
+MAX_INTERACTIONS: int | None = None 
 
-# ══════════════════════════════════════════════════════════════════════
-# 📊 RATING TIERS
-# ══════════════════════════════════════════════════════════════════════
+# RATING TIERS
 RATING_TIERS: dict[str, dict] = {
     "1-2": {
         "view_ratio": 50,
@@ -52,9 +43,8 @@ RATING_TIERS: dict[str, dict] = {
     },
 }
 
-# ══════════════════════════════════════════════════════════════════════
-# 🗂️  DANH MỤC CRAWL
-# ══════════════════════════════════════════════════════════════════════
+# DANH MỤC CRAWL
+
 CATEGORY_CONFIG: dict[str, dict] = {
     "Thời trang": {
         "urls": [
@@ -143,17 +133,13 @@ def catid_from_url(url: str) -> int:
         f"URL phải có dạng https://tiki.vn/ten-danh-muc/cSỐ"
     )
 
-
-# ══════════════════════════════════════════════════════════════════════
-# 🎨 CONSOLE COLORS & LOGGING
-# ══════════════════════════════════════════════════════════════════════
+# CONSOLE COLORS & LOGGING
 C_RESET = "\033[0m"
 C_GREEN = "\033[92m"
 C_RED   = "\033[91m"
 C_CYAN  = "\033[96m"
 C_BOLD  = "\033[1m"
 C_DIM   = "\033[2m"
-
 
 def log(msg: str, color: str = "", indent: int = 0) -> None:
     ts = datetime.now().strftime("%H:%M:%S")

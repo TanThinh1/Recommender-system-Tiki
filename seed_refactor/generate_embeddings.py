@@ -1,20 +1,11 @@
-"""
-╔══════════════════════════════════════════════════════════════════════╗
-║   GENERATE EMBEDDINGS v2 — Item Vectors + FAISS Index               ║
-║   Cải tiến so với v1:                                                ║
-║   [v2] Auto-detect index type:                                       ║
-║     - N ≤ IVFFLAT_THRESHOLD  → IndexFlatIP   (exact, <1ms/query)    ║
-║     - N >  IVFFLAT_THRESHOLD → IndexIVFFlat  (ANN, phù hợp 100K+)  ║
-║   Bước 1 trong pipeline Retrieval Mode của hệ thống gợi ý           ║
-║                                                                      ║
-║   Chức năng:                                                         ║
-║   1. Load sản phẩm từ MongoDB                                        ║
-║   2. Encode text → vector 384 chiều (sentence-transformers)          ║
-║   3. Lưu embedding vào MongoDB field item_embedding                  ║
-║   4. Build FAISS index → lưu file faiss_index.bin                   ║
-║   5. Lưu metadata index (type, nlist, nprobe) → faiss_meta.json     ║
-║   6. Kiểm tra chất lượng: thử query nearest neighbors               ║
-╚══════════════════════════════════════════════════════════════════════╝
+"""    
+  Chức năng:                                                         
+  1. Load sản phẩm từ MongoDB                                        
+  2. Encode text → vector 384 chiều (sentence-transformers)          
+  3. Lưu embedding vào MongoDB field item_embedding                  
+  4. Build FAISS index → lưu file faiss_index.bin                   
+  5. Lưu metadata index (type, nlist, nprobe) → faiss_meta.json     
+  6. Kiểm tra chất lượng: thử query nearest neighbors cho vài sản phẩm mẫu 
 """
 
 from __future__ import annotations
@@ -30,36 +21,24 @@ from pathlib import Path
 import numpy as np
 import faiss
 
-# Thêm cả thư mục hiện tại (seed_refactor/) LẪN thư mục cha (demo - Copy/)
-# vào sys.path để xử lý cả hai kiểu import:
-#   - relative:  from db.connection import get_db          (cần seed_refactor/ trong path)
-#   - absolute:  from seed_refactor.db.connection import … (cần thư mục cha trong path)
 _HERE   = Path(__file__).parent.resolve()
 _PARENT = _HERE.parent
 for _p in (_HERE, _PARENT):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-# ══════════════════════════════════════════════════════════════════════
-# ⚙️  CẤU HÌNH
-# ══════════════════════════════════════════════════════════════════════
-MODEL_NAME   = "paraphrase-multilingual-MiniLM-L12-v2"  # hỗ trợ tiếng Việt tốt
+# CẤU HÌNH
+MODEL_NAME   = "paraphrase-multilingual-MiniLM-L12-v2"  # embedding 384 chiều, hỗ trợ tiếng Việt tốt, cân bằng giữa chất lượng và tốc độ
 BATCH_SIZE   = 64
 FAISS_PATH   = Path(__file__).parent / "faiss_index.bin"
-ID_MAP_PATH  = Path(__file__).parent / "faiss_id_map.json"
-FAISS_META_PATH = Path(__file__).parent / "faiss_meta.json"   # ← v2: lưu index metadata
+ID_MAP_PATH  = Path(__file__).parent / "faiss_id_map.json" 
+FAISS_META_PATH = Path(__file__).parent / "faiss_meta.json"   # lưu metadata về index (type, nlist, nprobe) để load_faiss() dùng lại
 EMBED_DIM    = 384
-NORMALIZE    = True    # True = cosine similarity, False = L2 distance
+NORMALIZE    = True    # normalize embedding trước khi add vào FAISS → cosine similarity = inner product
 
-# ── [v2] Ngưỡng chuyển sang IndexIVFFlat ─────────────────────────────
-# Dưới ngưỡng: IndexFlatIP   → exact search, latency <1ms với 5K SP
-# Trên ngưỡng: IndexIVFFlat  → approximate search, scale tốt tới 10M SP
-IVFFLAT_THRESHOLD = 50_000
+IVFFLAT_THRESHOLD = 50_000 # Nếu >50K SP → dùng IVFFlat, nếu ≤50K SP → dùng FlatIP (exact search)
 
-# nlist  : số cluster (centroid). Heuristic: sqrt(N), tối thiểu 64
-# nprobe : số cluster duyệt khi query. Tăng nprobe → recall cao hơn,
-#          nhưng latency tăng. 10–25% nlist là điểm cân bằng tốt.
-IVFFLAT_NPROBE_RATIO = 0.10   # nprobe = nlist * ratio (clamp 16..256)
+IVFFLAT_NPROBE_RATIO = 0.10   # nprobe = nlist * 0.1, clamp về [16, 256]
 
 # Console colors
 C_RESET = "\033[0m"; C_GREEN = "\033[92m"; C_CYAN = "\033[96m"
@@ -70,9 +49,7 @@ def log(msg, color="", indent=0):
     ts = datetime.now().strftime("%H:%M:%S")
     print(f"{C_DIM}[{ts}]{C_RESET} {'  ' * indent}{color}{msg}{C_RESET}")
 
-# ══════════════════════════════════════════════════════════════════════
-# 📝 XÂY DỰNG TEXT ĐỂ ENCODE
-# ══════════════════════════════════════════════════════════════════════
+# XÂY DỰNG TEXT ĐỂ ENCODE
 def build_text(product: dict) -> str:
     """
     Ghép các trường quan trọng thành 1 chuỗi để encode.
@@ -87,7 +64,7 @@ def build_text(product: dict) -> str:
     name = (product.get("name") or "").strip()
     if name:
         parts.append(name)
-        parts.append(name)   # boost weight
+        parts.append(name)  # lặp name để tăng trọng số
 
     brand = (product.get("brand") or "").strip()
     if brand and brand != "No Brand":
@@ -114,9 +91,7 @@ def build_text(product: dict) -> str:
 
     return " | ".join(parts)
 
-# ══════════════════════════════════════════════════════════════════════
-# 🔢 ENCODE BATCH
-# ══════════════════════════════════════════════════════════════════════
+# ENCODE BATCH
 def encode_products(
     model,
     products: list[dict],
@@ -155,9 +130,7 @@ def encode_products(
 
     return np.vstack(all_embeddings).astype("float32")
 
-# ══════════════════════════════════════════════════════════════════════
-# 🗂️  BUILD FAISS INDEX  [v2: auto IndexFlatIP / IndexIVFFlat]
-# ══════════════════════════════════════════════════════════════════════
+# BUILD FAISS INDEX  [v2: auto IndexFlatIP / IndexIVFFlat]
 def _calc_nlist(n: int) -> int:
     """
     Tính nlist theo heuristic:

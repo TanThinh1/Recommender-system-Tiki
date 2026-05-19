@@ -1,18 +1,3 @@
-"""
-Grid Search cho ALS hyperparameters — v3
-Đồng bộ hoàn toàn với train_model v4:
-  1. Composite metric = 0.4*P@5 + 0.3*R@5 + 0.2*NDCG@5 + 0.1*HitRate@5
-  2. IDF weighting       → nhất quán với train_model v4
-  3. Temporal decay      → nhất quán với train_model v4
-  4. Time-based split    → train = tương tác cũ, test = tương tác mới
-                           (thay random split → tránh data leakage)
-  5. base_scaled_w tính 1 lần trước vòng lặp, mỗi combo chỉ thay alpha
-     → tốc độ nhanh hơn v2 vì không rebuild IDF/decay mỗi lần
-  6. Search space, early stopping, top-3 log giữ nguyên từ v2
-
-Chạy: python grid_search.py
-"""
-
 import itertools
 import json
 import math
@@ -32,9 +17,6 @@ from db.connection import get_db
 
 db = get_db()
 
-# ══════════════════════════════════════════════════════════════════════
-# ⚙️  GRID CONFIG — nhất quán với train_model v4
-# ══════════════════════════════════════════════════════════════════════
 FACTORS_LIST     = [64, 96, 128]
 ALPHA_LIST       = [80, 120, 160, 200]
 REG_LIST         = [0.05, 0.1, 0.15, 0.2]

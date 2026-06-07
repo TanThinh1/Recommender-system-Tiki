@@ -1,18 +1,3 @@
-"""
-╔══════════════════════════════════════════════════════════════════════╗
-║   UNIT TESTS — pipeline.py                                           ║
-║                                                                      ║
-║   Mỗi test bắt đúng 1 bug trong chuỗi gây ra 0% score:             ║
-║     test_bug1_*  → sai trọng số mặc định cho /similar               ║
-║     test_bug2_*  → _enrich_from_db query sai field                  ║
-║     test_bug3_*  → min-max normalization collapse FAISS scores       ║
-║     test_bug4_*  → FAISS inner product chưa remap về [0,1]          ║
-║     test_bug5_*  → rating vs rating_avg field mismatch              ║
-║                                                                      ║
-║   Chạy: pytest tests/test_pipeline.py -v                            ║
-╚══════════════════════════════════════════════════════════════════════╝
-"""
-
 from __future__ import annotations
 
 import sys
@@ -54,11 +39,6 @@ def _candidates_no_meta() -> list[dict]:
         {"product_id": "Y", "score": 0.90, "source": "similar"},
     ]
 
-
-# ══════════════════════════════════════════════════════════════════════
-# Bug 1 — Sai trọng số mặc định cho /similar
-# ══════════════════════════════════════════════════════════════════════
-
 class TestBug1WrongDefaultWeights:
 
     def test_default_weights_hurt_similar_endpoint(self):
@@ -95,11 +75,6 @@ class TestBug1WrongDefaultWeights:
                 f"product_id={item['product_id']} score={item['final_score']}"
             )
 
-
-# ══════════════════════════════════════════════════════════════════════
-# Bug 2 — _enrich_from_db query sai field (_id vs product_id)
-# ══════════════════════════════════════════════════════════════════════
-
 class TestBug2EnrichDbFieldMismatch:
 
     def test_enrich_skipped_when_db_none(self):
@@ -135,11 +110,6 @@ class TestBug2EnrichDbFieldMismatch:
                 f"score_weight=0.8 phải đảm bảo final_score > 0.7 dù rating=0: "
                 f"{item['product_id']} = {item['final_score']}"
             )
-
-
-# ══════════════════════════════════════════════════════════════════════
-# Bug 3 — Min-max normalization collapse FAISS scores về 0
-# ══════════════════════════════════════════════════════════════════════
 
 class TestBug3MinMaxCollapse:
 
@@ -185,11 +155,6 @@ class TestBug3MinMaxCollapse:
             f"{[c['product_id'] for c in zeros]}"
         )
 
-
-# ══════════════════════════════════════════════════════════════════════
-# Bug 4 — FAISS inner product chưa remap về [0, 1]
-# ══════════════════════════════════════════════════════════════════════
-
 class TestBug4FaissScoreRemap:
 
     def test_remap_formula_correct(self):
@@ -234,10 +199,6 @@ class TestBug4FaissScoreRemap:
         remapped = (raw_negative + 1.0) / 2.0        # = 0.45 — đúng
         assert remapped > 0.0, "Sau remap: score âm → 0.45 (đúng)"
 
-
-# ══════════════════════════════════════════════════════════════════════
-# Bug 5 — rating vs rating_avg field mismatch
-# ══════════════════════════════════════════════════════════════════════
 
 class TestBug5RatingFieldMismatch:
 
@@ -292,10 +253,6 @@ class TestBug5RatingFieldMismatch:
             )
 
 
-# ══════════════════════════════════════════════════════════════════════
-# Integration — toàn bộ chuỗi 5 bug
-# ══════════════════════════════════════════════════════════════════════
-
 class TestIntegrationNoZeroScore:
 
     def test_full_pipeline_no_zero_score_similar_usecase(self):
@@ -320,7 +277,7 @@ class TestIntegrationNoZeroScore:
         assert len(result.items) == 10
         for item in result.items:
             assert item["score"] > 0, (
-                f"🚨 score=0 với /similar weights — Bug chưa fix hoàn toàn: "
+                f" score=0 với /similar weights — Bug chưa fix hoàn toàn: "
                 f"product_id={item['product_id']}"
             )
 

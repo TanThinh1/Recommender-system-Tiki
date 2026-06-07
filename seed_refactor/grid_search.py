@@ -25,7 +25,7 @@ TEST_RATIO       = 0.2
 MIN_INTERACTIONS = 2
 INCLUDE_SOURCES  = ["real_review"]
 
-# (5) Mở rộng training signal — nhất quán với train_model v6
+# (5) Mở rộng training signal — nhất quán với train_model
 # Confidence = mức độ tin cậy: purchase mạnh nhất, view yếu nhất
 ACTION_CONFIDENCE: dict[str, float] = {
     "purchase"    : 10.0,
@@ -35,14 +35,14 @@ ACTION_CONFIDENCE: dict[str, float] = {
 }
 INCLUDE_ACTIONS = list(ACTION_CONFIDENCE.keys())
 
-# Temporal decay — copy từ train_model v4
+# Temporal decay — copy từ train_model
 USE_TEMPORAL_DECAY   = True
 DECAY_HALF_LIFE_DAYS = 90          # tương tác >90 ngày giảm 50% weight
 
-# IDF — copy từ train_model v4
+# IDF — copy từ train_model
 USE_IDF = True
 
-# Log-frequency — copy từ train_model v4
+# Log-frequency — copy từ train_model
 USE_LOG_FREQ = True
 
 # Early stopping
@@ -50,7 +50,7 @@ EARLY_STOP_PATIENCE = 12           # None = tắt
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 📐 HELPERS
+# HELPERS
 # ══════════════════════════════════════════════════════════════════════
 def composite_score(p5: float, r5: float, ndcg5: float, hr5: float) -> float:
     return 0.4 * p5 + 0.3 * r5 + 0.2 * ndcg5 + 0.1 * hr5
@@ -66,7 +66,7 @@ def evaluate_batch(model, purchase_filter_ui, test_ui, k: int = 5):
     n_users = purchase_filter_ui.shape[0]
     recs = model.recommend(
         np.arange(n_users),
-        purchase_filter_ui,              # ✅ [FIX v7] chỉ filter purchase
+        purchase_filter_ui,              # chỉ filter purchase
         N=k,
         filter_already_liked_items=True,
     )
@@ -125,7 +125,7 @@ def _time_based_split(
 
     if not use_time:
         print(
-            f"  ⚠️  Chỉ {len(timestamped):,}/{len(records):,} records có timestamp "
+            f"    Chỉ {len(timestamped):,}/{len(records):,} records có timestamp "
             f"({ts_ratio:.0%}) → fallback: per-user holdout (last {test_ratio:.0%} làm test)"
         )
         # Per-user holdout
@@ -251,7 +251,7 @@ for rec in train_records:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 4. IDF WEIGHTING — copy từ train_model v4
+# 4. IDF WEIGHTING 
 # ══════════════════════════════════════════════════════════════════════
 # item_user_count: pid_idx → số user đã tương tác (trong train)
 item_user_count = defaultdict(set)
@@ -336,7 +336,7 @@ test_matrix = sp.csr_matrix(
 print(f"  Test matrix: {test_matrix.nnz:,} entries  "
       f"({len(set(test_rows)):,} users có ít nhất 1 test item)")
 
-# [FIX v7] Purchase-only filter matrix — dùng khi evaluate để chỉ filter SP đã mua
+# Purchase-only filter matrix — dùng khi evaluate để chỉ filter SP đã mua
 # Không filter view/click → model có thể gợi ý SP user đã view nhưng chưa mua
 purchase_train_records = [r for r in train_records if r.get("action") == "purchase"]
 p_rows, p_cols = [], []

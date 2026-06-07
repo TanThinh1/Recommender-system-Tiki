@@ -1,16 +1,3 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║  TIKI RECOMMENDATION — Node.js Frontend Server                  ║
- * ║                                                                  ║
- * ║  UC-01  GET  /api/products              Danh sách + phân trang  ║
- * ║  UC-02  GET  /api/products/:id          Chi tiết sản phẩm       ║
- * ║  UC-03  GET  /api/recommend/user/:id    Gợi ý cá nhân hoá       ║
- * ║  UC-04  GET  /api/recommend/similar/:id Sản phẩm tương tự       ║
- * ║  UC-05  POST /api/interactions          Ghi nhận tương tác       ║
- * ║  UC-06  GET  /api/stats                 Thống kê hệ thống        ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
 require("dotenv").config();
 const express = require("express");
 const cors    = require("cors");
@@ -40,7 +27,7 @@ async function getDb() {
       connectTimeoutMS: 5000,
     });
     await _client.connect();
-    console.log("✅ MongoDB connected →", MONGO_URI);
+    console.log(" MongoDB connected →", MONGO_URI);
   }
   return _client.db(DB_NAME);
 }

@@ -1,19 +1,3 @@
-"""
-╔══════════════════════════════════════════════════════════════════════╗
-║   RECOMMEND API — Model Deployment                                   ║
-║                                                                      ║
-║   Endpoints:                                                         ║
-║   GET  /recommend/{user_id}     → ALS collaborative filtering        ║
-║   GET  /similar/{product_id}    → FAISS content-based similarity     ║
-║   GET  /health                  → trạng thái model + FAISS           ║
-║   POST /feedback                → log interaction → retraining later ║
-║                                                                      ║
-║   Chạy:                                                              ║
-║       pip install fastapi uvicorn                                    ║
-║       uvicorn recommend_api:app --host 0.0.0.0 --port 8000 --reload  ║
-╚══════════════════════════════════════════════════════════════════════╝
-"""
-
 import json
 import logging
 import os
@@ -49,7 +33,7 @@ logging.basicConfig(
 log = logging.getLogger("recommend_api")
 
 # ══════════════════════════════════════════════════════════════════════
-# 📦 GLOBAL STATE — load một lần khi khởi động
+#  GLOBAL STATE — load một lần khi khởi động
 # ══════════════════════════════════════════════════════════════════════
 class ModelStore:
     """Giữ toàn bộ model artifacts trong memory."""
@@ -114,8 +98,8 @@ def _load_meta():
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 🔌 DB (optional — dùng cho /feedback)
-# ══════════════════════════════════════════════════════════════════════
+#  DB (optional — dùng cho /feedback)
+# ═════════════════════════════════════════════════════════════════════
 try:
     sys.path.insert(0, str(BASE_DIR.parent))
     from db.connection import get_db
@@ -150,11 +134,11 @@ def _smoke_test_similar() -> None:
         )
         scores = [item["score"] for item in result.items]
         if not scores:
-            log.warning("🚨 Smoke test: pipeline trả về 0 items — kiểm tra FAISS index")
+            log.warning(" Smoke test: pipeline trả về 0 items — kiểm tra FAISS index")
             return
         if all(s == 0.0 for s in scores):
             log.error(
-                "🚨 Smoke test FAILED — toàn bộ scores = 0.0\n"
+                " Smoke test FAILED — toàn bộ scores = 0.0\n"
                 "   Nguyên nhân có thể:\n"
                 "   • DB enrichment lỗi (kiểm tra product_id field trong MongoDB)\n"
                 "   • FAISS score chưa được remap về [0,1]\n"
@@ -164,11 +148,11 @@ def _smoke_test_similar() -> None:
         else:
             log.info(f"✅ Smoke test passed — sample scores: {scores}")
     except Exception as e:
-        log.error(f"🚨 Smoke test exception: {e}")
+        log.error(f" Smoke test exception: {e}")
 
 
 # ══════════════════════════════════════════════════════════════════════
-# ⚡ LIFESPAN — load tất cả khi app khởi động
+#  LIFESPAN — load tất cả khi app khởi động
 # ══════════════════════════════════════════════════════════════════════
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -180,13 +164,13 @@ async def lifespan(app: FastAPI):
     _load_faiss()
     store.loaded_at = datetime.now().isoformat()
     _smoke_test_similar()   # kiểm tra score > 0 trước khi serve traffic
-    log.info("✅ Sẵn sàng phục vụ")
+    log.info(" Sẵn sàng phục vụ")
     yield
     log.info("Shutting down…")
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 🚀 APP
+#  APP
 # ══════════════════════════════════════════════════════════════════════
 app = FastAPI(
     title="Product Recommendation API",
@@ -203,7 +187,7 @@ app.add_middleware(
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 📐 SCHEMAS
+#  SCHEMAS
 # ══════════════════════════════════════════════════════════════════════
 class RecommendItem(BaseModel):
     product_id : str
@@ -232,7 +216,7 @@ class FeedbackRequest(BaseModel):
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 🔧 HELPERS
+#  HELPERS
 # ══════════════════════════════════════════════════════════════════════
 def _popular_fallback(n: int) -> list[RecommendItem]:
     """Trả về top-N popular items (cold-start)."""
@@ -306,7 +290,7 @@ def _faiss_similar(product_id: str, n: int) -> list[dict]:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 🌐 ENDPOINTS
+#  ENDPOINTS
 # ══════════════════════════════════════════════════════════════════════
 
 # ── 1. Health check ──────────────────────────────────────────────────
@@ -621,7 +605,7 @@ def online_metrics(days: int = Query(default=7, ge=1, le=90)):
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 🔄 RELOAD MODEL (dùng sau khi retrain)
+#  RELOAD MODEL (dùng sau khi retrain)
 # ══════════════════════════════════════════════════════════════════════
 @app.post("/admin/reload", include_in_schema=False)
 def reload_model(secret: str = Query(...)):

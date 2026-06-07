@@ -1,19 +1,3 @@
-"""
-╔══════════════════════════════════════════════════════════════════════╗
-║   TRAIN MODEL v5 — Time-based split + Refactored matrix builder     ║
-║   Cải tiến so với v4:                                                ║
-║   1. MIN_INTERACTIONS=2  → loại user chỉ 1 tương tác (nhiễu)        ║
-║   2. Log-frequency weight → log(1+n) thay vì cap 1.0                ║
-║   3. IDF weighting       → item phổ biến nhận confidence thấp hơn   ║
-║   4. Temporal decay      → tương tác cũ bị giảm trọng số            ║
-║   5. Zero-score fallback → tự động dùng popular khi ALS score ≈ 0   ║
-║   6. Composite metric    → đánh giá cân bằng P/R/NDCG               ║
-║   7. [v5] Time-based split → không dùng random split của implicit   ║
-║          → train = interactions cũ, test = interactions mới nhất    ║
-║          → metrics phản ánh thực tế, tránh data leakage             ║
-╚══════════════════════════════════════════════════════════════════════╝
-"""
-
 from __future__ import annotations
 
 import os
@@ -33,9 +17,6 @@ import numpy as np
 import scipy.sparse as sp
 from implicit.als import AlternatingLeastSquares
 
-# ❌ v4: from implicit.evaluation import train_test_split (random → leaky)
-# ✅ v5: dùng time_based_split() tự viết bên dưới
-
 warnings.filterwarnings("ignore")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
@@ -51,10 +32,7 @@ def log(msg, color="", indent=0):
 # ══════════════════════════════════════════════════════════════════════
 # ⚙️  CẤU HÌNH
 # ══════════════════════════════════════════════════════════════════════
-# ══════════════════════════════════════════════════════════════════════
-# ⚙️  CẤU HÌNH
-# ══════════════════════════════════════════════════════════════════════
-# (5) Mở rộng training signal ngoài purchase
+# Mở rộng training signal ngoài purchase
 # Confidence = mức độ tin cậy cho mỗi loại action
 # Thứ tự: purchase > add_to_cart > click > view
 # ALS dùng confidence để biết action nào đáng tin hơn khi factorize
@@ -86,13 +64,13 @@ BEST_PARAMS_PATH = BASE_DIR / "best_params.json"
 if BEST_PARAMS_PATH.exists():
     with open(BEST_PARAMS_PATH) as f:
         best = json.load(f)
-    log(f"📌 Load best params từ {BEST_PARAMS_PATH.name}: {best}", C_CYAN)
+    log(f" Load best params từ {BEST_PARAMS_PATH.name}: {best}", C_CYAN)
     ALPHA          = best.get("alpha", 120)
     FACTORS        = best.get("factors", 64)
     REGULARIZATION = best.get("reg", 0.1)
     ITERATIONS     = 100
 else:
-    log("❌ Không tìm thấy best_params.json. Chạy grid_search.py trước.", C_RED)
+    log(" Không tìm thấy best_params.json. Chạy grid_search.py trước.", C_RED)
     sys.exit(1)
 
 # ── DB ───────────────────────────────────────────────────────────────
@@ -105,9 +83,9 @@ for _p in (BASE_DIR, BASE_DIR.parent):
 try:
     from db.connection import get_db
     db = get_db()
-    log("✅ Kết nối MongoDB thành công", C_GREEN)
+    log(" Kết nối MongoDB thành công", C_GREEN)
 except Exception as e:
-    log(f"❌ Không kết nối được MongoDB: {e}", C_RED)
+    log(f" Không kết nối được MongoDB: {e}", C_RED)
     sys.exit(1)
 
 # ══════════════════════════════════════════════════════════════════════
@@ -133,7 +111,7 @@ raw_interactions = list(db.interactions.find(
 log(f"{len(raw_interactions):,} interactions  ({time.time()-t0:.1f}s)", C_GREEN, indent=2)
 
 if not raw_interactions:
-    log("❌ Không có interaction nào.", C_RED)
+    log(" Không có interaction nào.", C_RED)
     sys.exit(1)
 
 log("Load products...", indent=1)
@@ -200,26 +178,12 @@ def get_temporal_weight(r: dict) -> float:
 # ══════════════════════════════════════════════════════════════════════
 # 4. [v5] TIME-BASED SPLIT
 # ══════════════════════════════════════════════════════════════════════
-log("4. [v5] Time-based split", C_BOLD)
+log("4. Time-based split", C_BOLD)
 
 def time_based_split(
     interactions: list[dict],
     test_ratio: float = 0.2,
 ) -> tuple[list[dict], list[dict]]:
-    """
-    Split interactions theo thời gian. Nếu <50% interactions có timestamp
-    → fallback tự động sang per-user holdout (last N items làm test).
-
-    [FIX v6] Với multi-action data (view/click/purchase cùng 1 SP):
-      - Train  : toàn bộ actions (dùng confidence weighting)
-      - Test   : CHỈ purchase actions, loại bỏ (user, product) đã có trong train
-                 → đảm bảo test ground truth là "sản phẩm chưa thấy trong train"
-                 → tránh precision=0 do filter_already_liked_items loại hết test items
-
-    Per-user holdout:
-      - Mỗi user giữ lại test_ratio interactions cuối làm ground truth
-      - Phần còn lại làm train
-    """
     user_ints: dict[str, list] = defaultdict(list)
     for r in interactions:
         user_ints[r["user_id"]].append(r)
@@ -236,7 +200,7 @@ def time_based_split(
         log(f"→ Time-based split  ({n_has_ts:,}/{n_total:,} có timestamp)", C_CYAN, indent=2)
     else:
         log(
-            f"⚠️  Chỉ {n_has_ts:,}/{n_total:,} interactions có timestamp "
+            f"  Chỉ {n_has_ts:,}/{n_total:,} interactions có timestamp "
             f"→ fallback: per-user holdout (last {TEST_RATIO:.0%} làm test)",
             C_YEL, indent=2,
         )
@@ -260,15 +224,6 @@ def time_based_split(
         cut = max(1, n - max(1, round(n * test_ratio)))
         train_ints.extend(ints_sorted[:cut])
         raw_test_ints.extend(ints_sorted[cut:])
-
-    # [FIX v7] Test ground truth = purchase-only, KHÔNG lọc overlap với train
-    # Lý do: user thường view/click → rồi purchase cùng SP.
-    # Nếu lọc overlap thì test = rỗng vì mọi purchase đều có view/click trong train.
-    # Câu hỏi evaluation đúng: "model có gợi ý đúng SP user sắp purchase không,
-    # kể cả khi họ đã view/click SP đó?"
-    #
-    # Để tránh filter_already_liked_items loại mất SP này,
-    # evaluate_model dùng purchase-only train matrix khi filter (xem bước 7).
     test_ints = [r for r in raw_test_ints if r.get("action") == "purchase"]
 
     n_non_purchase = len(raw_test_ints) - len(test_ints)
@@ -417,7 +372,7 @@ test_user_item, _ = build_ui_matrix(
     test_ints, user2idx, product2idx, n_users, n_products, ALPHA, binary=True
 )
 
-# [FIX v7] Ma trận purchase-only trong train — dùng để filter khi evaluate
+# Ma trận purchase-only trong train — dùng để filter khi evaluate
 # Chỉ filter những SP user đã PURCHASE (không filter view/click)
 # → model.recommend() vẫn có thể gợi ý SP user đã view/click nhưng chưa mua
 log("  Build purchase-filter matrix (purchase-only train)...", indent=1)
@@ -456,8 +411,8 @@ model = AlternatingLeastSquares(
 
 log("Đang huấn luyện...", indent=2)
 t0 = time.time()
-# ✅ implicit >= 0.5: fit() nhận user_items (n_users × n_items)
-# ❌ trước đó truyền train_item_user (1138×3303) → user_factors size=1138 → IndexError
+#  implicit >= 0.5: fit() nhận user_items (n_users × n_items)
+#  trước đó truyền train_item_user (1138×3303) → user_factors size=1138 → IndexError
 model.fit(train_user_item, show_progress=True)
 elapsed = time.time() - t0
 log(f"Hoàn tất: {elapsed:.1f}s", C_GREEN, indent=2)
@@ -486,7 +441,7 @@ def evaluate_model(model, purchase_filter_ui, test_ui, n_users, idx2product, top
 
     recs = model.recommend(
         np.arange(n_users),
-        purchase_filter_ui,              # ✅ chỉ filter SP đã purchase (không filter view/click)
+        purchase_filter_ui,              # chỉ filter SP đã purchase (không filter view/click)
         N=max_k,
         filter_already_liked_items=True,
     )
@@ -555,11 +510,11 @@ print()
 p5         = metrics[5]["precision"]
 composite5 = metrics[5]["composite"]
 if p5 >= 0.05:
-    grade = f"{C_GREEN}✅ TỐT"
+    grade = f"{C_GREEN} TỐT"
 elif p5 >= 0.02:
-    grade = f"{C_YEL}⚠️  KHÁ"
+    grade = f"{C_YEL}  KHÁ"
 else:
-    grade = f"{C_RED}❌ THẤP"
+    grade = f"{C_RED} THẤP"
 log(f"precision@5 = {p5:.4f}  composite@5 = {composite5:.4f}  {grade}{C_RESET}", indent=1)
 
 # ══════════════════════════════════════════════════════════════════════
@@ -612,7 +567,7 @@ model_data = {
     "product2idx":      product2idx,
     "idx2user":         idx2user,
     "idx2product":      idx2product,
-    # ✅ Lưu full_user_item (toàn bộ dữ liệu) để inference trong production
+    #  Lưu full_user_item (toàn bộ dữ liệu) để inference trong production
     "user_item":        full_user_item,
     "popular_items":    popular_items,
     "weighting_config": weighting_config,
@@ -702,7 +657,7 @@ for uid in sample_users:
 # ══════════════════════════════════════════════════════════════════════
 # SUMMARY
 # ══════════════════════════════════════════════════════════════════════
-print(f"{C_BOLD}{C_GREEN}✅ HOÀN TẤT (v5)!{C_RESET}")
+print(f"{C_BOLD}{C_GREEN} HOÀN TẤT!{C_RESET}")
 print(f"   Users train    : {n_users:,}  (min_inter≥{MIN_INTERACTIONS})")
 print(f"   Products        : {n_products:,}")
 print(f"   Interactions    : {len(filtered):,}  (train={len(train_ints):,} / test={len(test_ints):,})")

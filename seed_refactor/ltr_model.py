@@ -1,24 +1,3 @@
-"""
-╔══════════════════════════════════════════════════════════════════════╗
-║   LTR MODEL — Learning-to-Rank thay thế linear combination          ║
-║                                                                      ║
-║   Thay vì re-rank bằng:                                             ║
-║     score_weight × norm_score + rating_weight × norm_rating          ║
-║   Dùng LightGBM học từ interaction log để dự đoán P(purchase).      ║
-║                                                                      ║
-║   Chạy: python ltr_model.py                                          ║
-║   Output: ltr_model.pkl  (pipeline.py tự load khi khởi động)        ║
-║                                                                      ║
-║   Features:                                                          ║
-║     - price_norm          : giá / 10M (normalize về [0,1])          ║
-║     - rating_norm         : rating / 5.0                            ║
-║     - stock_flag          : 1 nếu còn hàng, 0 nếu hết              ║
-║     - cat_purchase_count  : số lần user mua trong category đó       ║
-║                                                                      ║
-║   Label: 1 nếu action ∈ {purchase, add_to_cart}, 0 nếu {click/view}║
-╚══════════════════════════════════════════════════════════════════════╝
-"""
-
 from __future__ import annotations
 
 import logging
@@ -211,6 +190,6 @@ if __name__ == "__main__":
     artifact = train(db)
     quick_eval(artifact, db)
 
-    print(f"\n✅ LTR model sẵn sàng → {MODEL_PATH}")
+    print(f"\n LTR model sẵn sàng → {MODEL_PATH}")
     print("   pipeline.py sẽ tự load khi khởi động lại recommend_api.")
     print("   Để reload mà không restart: POST /admin/reload")

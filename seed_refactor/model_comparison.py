@@ -1,19 +1,3 @@
-"""
-╔══════════════════════════════════════════════════════════════════════╗
-║   MODEL COMPARISON — Pure CF vs Pure CBF vs Hybrid                  ║
-║                                                                      ║
-║   So sánh 3 hướng tiếp cận trên cùng 1 train/test split:           ║
-║     1. Pure CF   — ALS (Implicit Matrix Factorization)              ║
-║     2. Pure CBF  — TF-IDF content similarity (không dùng behavior)  ║
-║     3. Hybrid    — weighted CF score + CBF score                    ║
-║                                                                      ║
-║   Cùng dữ liệu, cùng split, cùng metrics → kết quả fair.           ║
-║                                                                      ║
-║   Chạy: python model_comparison.py                                  ║
-║   Output: in bảng so sánh + ghi comparison_results.json            ║
-╚══════════════════════════════════════════════════════════════════════╝
-"""
-
 from __future__ import annotations
 
 import json
@@ -49,7 +33,7 @@ def log(msg, color="", indent=0):
     print(f"{C_DIM}[{ts}]{C_RESET} {'  '*indent}{color}{msg}{C_RESET}")
 
 # ══════════════════════════════════════════════════════════════════════
-# ⚙️  CẤU HÌNH — dùng chung cho cả 3 model
+#   CẤU HÌNH — dùng chung cho cả 3 model
 # ══════════════════════════════════════════════════════════════════════
 INCLUDE_ACTIONS = ["purchase", "add_to_cart", "click", "view"]
 INCLUDE_SOURCES = ["real_review"]
@@ -614,7 +598,7 @@ def print_comparison(results: dict[str, dict], top_k_list=TOP_K_LIST):
     cf_score  = comp5.get("Pure CF", 0)
     hy_score  = comp5.get("Hybrid", 0)
 
-    print(f"  📌 Khuyến nghị:")
+    print(f"   Khuyến nghị:")
     if best_model == "Hybrid":
         print(f"     Hybrid tốt nhất → tiếp tục dùng cả CF lẫn CBF.")
         if abs(cf_score - cbf_score) < 0.01:
@@ -675,7 +659,7 @@ if __name__ == "__main__":
     except ImportError:
         missing.append("scikit-learn")
     if missing:
-        print(f"{C_RED}❌ Thiếu thư viện: {', '.join(missing)}{C_RESET}")
+        print(f"{C_RED} Thiếu thư viện: {', '.join(missing)}{C_RESET}")
         print(f"   Chạy: pip install {' '.join(missing)}")
         sys.exit(1)
 
@@ -683,9 +667,9 @@ if __name__ == "__main__":
     try:
         from db.connection import get_db
         db = get_db()
-        log("✅ MongoDB connected", C_GREEN)
+        log(" MongoDB connected", C_GREEN)
     except Exception as e:
-        log(f"❌ MongoDB error: {e}", C_RED)
+        log(f" MongoDB error: {e}", C_RED)
         sys.exit(1)
 
     # ── Load data ──────────────────────────────────────────────────────

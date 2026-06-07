@@ -633,8 +633,46 @@ tr:hover td { background: var(--bg-3); }
 .detail-prop-value { font-size: 15px; font-weight: 600; color: var(--text-0); }
 
 /* ── TWO-COL ── */
-.two-col { display: grid; grid-template-columns: 400px 1fr; gap: 24px; }
+.two-col { display: grid; grid-template-columns: 320px 1fr; gap: 24px; }
 .two-col.wide { grid-template-columns: 450px 1fr; }
+
+/* ── REC GRID (4 cột cố định, xuống dòng khi đủ sp) ── */
+.rec-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.rec-card {
+  background: #fff; border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; cursor: pointer;
+  transition: all 0.2s; box-shadow: var(--shadow-card);
+}
+.rec-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); border-color: var(--border-bright); }
+.rec-card .rc-img {
+  aspect-ratio: 1; background: var(--bg-2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; border-bottom: 1px solid var(--bg-3); padding: 12px;
+  position: relative; overflow: hidden;
+}
+.rec-card .rc-img img { width: 100%; height: 100%; object-fit: contain; }
+.rec-card .rc-body { padding: 10px 12px 12px; }
+.rec-card .rc-name {
+  font-size: 12px; font-weight: 500; color: var(--text-1);
+  line-height: 1.4; margin-bottom: 6px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.rec-card .rc-price { font-weight: 700; font-size: 13px; color: var(--violet); }
+.rec-card .rc-score { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+.rec-results-wrap { padding: 0; }
+.rec-results-header {
+  font-size: 15px; font-weight: 600; color: var(--text-0);
+  margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.rec-badge {
+  font-size: 11px; font-weight: 600; padding: 3px 8px;
+  border-radius: 20px; background: var(--violet-light, #ede9fe); color: var(--violet);
+}
 
 /* ── CHIP / CATEGORY ── */
 .chip {
@@ -713,6 +751,10 @@ tr:hover td { background: var(--bg-3); }
   .main { margin-left: 0; }
   .two-col, .two-col.wide { grid-template-columns: 1fr; }
   .charts-grid { grid-template-columns: 1fr; }
+  .rec-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .rec-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 /* ── PAGE INFO ── */
@@ -1155,7 +1197,12 @@ async function renderProducts() {
     <div class="card" style="margin-bottom:20px; overflow: visible;">
       <div class="card-body" style="padding:16px 20px;">
         <div style="display:flex;gap:12px;">
-          <input class="input" id="search-input" placeholder="Tìm kiếm tên sản phẩm...">
+          <div class="autocomplete-wrap" style="flex:1;">
+            <input class="input" id="search-input" placeholder="Tìm kiếm tên sản phẩm..." autocomplete="off"
+              oninput="searchProductsListAC(this.value)" onfocus="searchProductsListAC(this.value)"
+              onkeydown="if(event.key==='Enter'){applyProductFilters();document.getElementById('search-ac-dropdown').style.display='none';}">
+            <div class="autocomplete-dropdown" id="search-ac-dropdown"></div>
+          </div>
           <select class="input" id="sort-select" style="max-width:200px; cursor: pointer;">
             <option value="popularity_score">Phổ biến nhất</option>
             <option value="price_asc">Giá tăng dần</option>
@@ -1168,7 +1215,10 @@ async function renderProducts() {
     </div>
     <div class="cat-scroll" style="display:flex;gap:10px;margin-bottom:20px;overflow-x:auto;">
       <div class="chip active" onclick="setCat('')">Tất cả danh mục</div>
-      ${state.categories.map(c=>`<div class="chip" onclick="setCat('${c}')">${c}</div>`).join('')}
+      <div class="chip" onclick="setCat('Làm đẹp - Sức khỏe')">Làm đẹp - Sức khỏe</div>
+      <div class="chip" onclick="setCat('Thiết bị điện tử')">Thiết bị điện tử</div>
+      <div class="chip" onclick="setCat('Thời trang')">Thời trang</div>
+        ${state.categories.filter(c => !['Làm đẹp - Sức khỏe', 'Thiết bị điện tử', 'Thời trang'].includes(c)).map(c=>`<div class="chip" onclick="setCat('${c}')">${c}</div>`).join('')}
     </div>
     <div id="products-area">
       <div class="product-grid">${skeletonCards(10)}</div>
@@ -1340,22 +1390,22 @@ async function fetchUserRec() {
   try {
     const d = await api(`/api/recommend/user/${encodeURIComponent(uid)}?n=${n}&alpha=${alpha}`);
     const items = d.items || [];
-    el.className = ''; // remove card styles for raw grid
+    el.className = 'rec-results-wrap';
     el.innerHTML = `
-      <h3 style="font-size:16px; font-weight:600; margin-bottom:16px; color:var(--text-0);">Sản phẩm đề xuất cho bạn</h3>
-      <div class="carousel-wrap">
-      <button class="carousel-btn prev" onclick="scrollCarousel('rec-carousel',-1)">‹</button>
-      <div class="carousel" id="rec-carousel">
-        ${items.map(i=>`<div class="carousel-card" onclick="showProductDetail('${i.product_id}')">
-          <div class="cc-img">${i.image_url?`<img src="${i.image_url}">`:'📦'}</div>
-          <div class="cc-body">
-            <div class="cc-name">${i.name||i.product_id}</div>
-            <div class="cc-price">${fmtPrice(i.price)}</div>
+      <div class="rec-results-header">
+        <span>Sản phẩm đề xuất cho bạn</span>
+        <span class="rec-badge">${items.length} sản phẩm · ${d.is_cold ? 'Cold start' : 'Hybrid AI'}</span>
+      </div>
+      <div class="rec-grid">
+        ${items.map(i => `<div class="rec-card" onclick="showProductDetail('${i.product_id}')">
+          <div class="rc-img">${i.image_url ? `<img src="${i.image_url}">` : '📦'}</div>
+          <div class="rc-body">
+            <div class="rc-name">${i.name || i.product_id}</div>
+            <div class="rc-price">${fmtPrice(i.price)}</div>
+            ${i.score != null ? `<div class="rc-score">Score: ${(+i.score).toFixed(3)}</div>` : ''}
           </div>
         </div>`).join('')}
-      </div>
-      <button class="carousel-btn next" onclick="scrollCarousel('rec-carousel',1)">›</button>
-    </div>`;
+      </div>`;
   } catch(e) { el.className = 'card'; el.innerHTML = `<div class="card-body">${emptyState('Có lỗi xảy ra',e.message)}</div>`; }
 }
 
@@ -1395,6 +1445,47 @@ function renderRecommendSimilar() {
 }
 
 let _productACTimer = null;
+let _searchListACTimer = null;
+
+/* Autocomplete cho ô tìm kiếm ở trang Danh sách sản phẩm */
+async function searchProductsListAC(q) {
+  clearTimeout(_searchListACTimer);
+  const dd = document.getElementById('search-ac-dropdown');
+  if (!dd) return;
+  if (!q.trim()) { dd.style.display = 'none'; return; }
+  _searchListACTimer = setTimeout(async () => {
+    try {
+      const params = new URLSearchParams({ search: q, limit: 8 });
+      if (state.products.category) params.set('category', state.products.category);
+      const d = await api(`/api/products?${params}`);
+      const prods = d.products || [];
+      if (!prods.length) {
+        dd.innerHTML = `<div class="autocomplete-item" style="color:var(--text-3);justify-content:center;">Không tìm thấy sản phẩm</div>`;
+      } else {
+        dd.innerHTML = prods.map(p => {
+          const name = (p.name || p.product_id).replace(/'/g, "\\'");
+          return `<div class="autocomplete-item" onclick="selectSearchListItem('${name}')">
+            <div class="ai-product-img">${p.image_url ? `<img src="${p.image_url}">` : '📦'}</div>
+            <div style="flex:1;min-width:0;">
+              <div class="ai-name">${p.name || p.product_id}</div>
+              <div class="ai-sub" style="font-weight:600;color:var(--violet);">${fmtPrice(p.price)}<span style="font-weight:400;color:var(--text-3)">${p.category ? ' · ' + p.category : ''}</span></div>
+            </div>
+          </div>`;
+        }).join('');
+      }
+      dd.style.display = 'block';
+    } catch(e) { dd.style.display = 'none'; }
+  }, 250);
+}
+
+function selectSearchListItem(name) {
+  const inp = document.getElementById('search-input');
+  if (inp) inp.value = name;
+  const dd = document.getElementById('search-ac-dropdown');
+  if (dd) dd.style.display = 'none';
+  applyProductFilters();
+}
+
 async function searchProductsAC(q) {
   clearTimeout(_productACTimer);
   const dd = document.getElementById('product-ac-dropdown');
@@ -1454,20 +1545,24 @@ async function fetchSimilar() {
   try {
     const d = await api(`/api/recommend/similar/${encodeURIComponent(pid)}?n=${n}`);
     const items = d.items || [];
-    el.className = ''; // remove card class
+    el.className = 'rec-results-wrap';
     el.innerHTML = `
-    <h3 style="font-size:16px; font-weight:600; margin-bottom:16px; color:var(--text-0);">Các sản phẩm có thể bạn quan tâm</h3>
-    <div class="product-grid" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));">
-      ${items.map(i=>`<div class="product-card" onclick="showProductDetail('${i.product_id}')">
-        <div class="p-img">${i.image_url?`<img src="${i.image_url}">`:'📦'}
-          <div class="p-cart" onclick="event.stopPropagation();sendInteraction('${i.product_id}','add_to_cart')">🛒</div>
-        </div>
-        <div class="p-body">
-          <div class="p-name">${i.name||i.product_id}</div>
-          <div class="p-price">${fmtPrice(i.price)}</div>
-        </div>
-      </div>`).join('')}
-    </div>`;
+      <div class="rec-results-header">
+        <span>Các sản phẩm có thể bạn quan tâm</span>
+        <span class="rec-badge">${items.length} sản phẩm tương tự</span>
+      </div>
+      <div class="rec-grid">
+        ${items.map(i => `<div class="rec-card" onclick="showProductDetail('${i.product_id}')">
+          <div class="rc-img">${i.image_url ? `<img src="${i.image_url}">` : '📦'}
+            <div class="p-cart" onclick="event.stopPropagation();sendInteraction('${i.product_id}','add_to_cart')" style="position:absolute;bottom:8px;right:8px;">🛒</div>
+          </div>
+          <div class="rc-body">
+            <div class="rc-name">${i.name || i.product_id}</div>
+            <div class="rc-price">${fmtPrice(i.price)}</div>
+            ${i.similarity != null ? `<div class="rc-score">Similarity: ${(+i.similarity).toFixed(3)}</div>` : ''}
+          </div>
+        </div>`).join('')}
+      </div>`;
   } catch(e) { el.className = 'card'; el.innerHTML = `<div class="card-body">${emptyState('Lỗi',e.message)}</div>`; }
 }
 
@@ -1581,6 +1676,8 @@ window.searchUsers = searchUsers;
 window.selectUser = selectUser;
 window.clearUser = clearUser;
 window.searchProductsAC = searchProductsAC;
+window.searchProductsListAC = searchProductsListAC;
+window.selectSearchListItem = selectSearchListItem;
 window.selectProductAC = selectProductAC;
 window.clearProductAC = clearProductAC;
 

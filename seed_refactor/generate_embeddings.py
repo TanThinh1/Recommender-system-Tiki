@@ -210,7 +210,7 @@ def build_faiss_index(embeddings: np.ndarray) -> tuple[faiss.Index, dict]:
     return index, meta
 
 # ══════════════════════════════════════════════════════════════════════
-# 🔍 KIỂM TRA CHẤT LƯỢNG
+# KIỂM TRA CHẤT LƯỢNG
 # ══════════════════════════════════════════════════════════════════════
 def quality_check(
     model,
@@ -263,7 +263,7 @@ def quality_check(
     print(f"  ✅ = cùng danh mục (tốt)  ⚠️  = khác danh mục (kiểm tra lại)")
 
 # ══════════════════════════════════════════════════════════════════════
-# 💾 LƯU / ĐỌC FAISS  [v2: kèm meta]
+# LƯU / ĐỌC FAISS  [v2: kèm meta]
 # ══════════════════════════════════════════════════════════════════════
 def save_faiss(index: faiss.Index, id_map: list[str], meta: dict):
     """Lưu FAISS index, ID map, và metadata."""
@@ -278,7 +278,7 @@ def save_faiss(index: faiss.Index, id_map: list[str], meta: dict):
 def load_faiss() -> tuple[faiss.Index, list[str]]:
     """
     Load FAISS index và ID map.
-    [v2] Đọc faiss_meta.json để restore nprobe cho IVFFlat,
+    Đọc faiss_meta.json để restore nprobe cho IVFFlat,
          tránh silent fallback về nprobe=1 (mặc định sau khi load).
     """
     index  = faiss.read_index(str(FAISS_PATH))
@@ -300,7 +300,7 @@ def load_faiss() -> tuple[faiss.Index, list[str]]:
     return index, id_map
 
 # ══════════════════════════════════════════════════════════════════════
-# 💾 BULK UPDATE MONGODB
+# BULK UPDATE MONGODB
 # ══════════════════════════════════════════════════════════════════════
 def save_embeddings_to_mongo(db, products: list[dict], embeddings: np.ndarray):
     """
@@ -331,7 +331,7 @@ def save_embeddings_to_mongo(db, products: list[dict], embeddings: np.ndarray):
     log(f"Đã cập nhật item_embedding cho {total:,} sản phẩm", C_GREEN, 1)
 
 # ══════════════════════════════════════════════════════════════════════
-# 🚀 MAIN
+# MAIN
 # ══════════════════════════════════════════════════════════════════════
 def main():
     print(f"\n{C_BOLD}{C_CYAN}{'═'*60}{C_RESET}")
@@ -346,8 +346,8 @@ def main():
         import faiss
         log("✅ sentence-transformers và faiss-cpu đã cài", C_GREEN)
     except ImportError as e:
-        print(f"{C_RED}❌ Thiếu thư viện: {e}{C_RESET}")
-        print(f"{C_RED}   Chạy: pip install sentence-transformers faiss-cpu numpy{C_RESET}")
+        print(f"{C_RED} Thiếu thư viện: {e}{C_RESET}")
+        print(f"{C_RED} Chạy: pip install sentence-transformers faiss-cpu numpy{C_RESET}")
         sys.exit(1)
 
     # ── 1. Kết nối MongoDB ───────────────────────────────────────────
@@ -356,7 +356,7 @@ def main():
         db = get_db()
         log("✅ Kết nối MongoDB thành công", C_GREEN)
     except Exception as e:
-        print(f"{C_RED}❌ MongoDB error: {e}{C_RESET}")
+        print(f"{C_RED} MongoDB error: {e}{C_RESET}")
         sys.exit(1)
 
     # ── 2. Load sản phẩm ─────────────────────────────────────────────
@@ -372,7 +372,7 @@ def main():
     ))
 
     if not products:
-        print(f"{C_RED}❌ Không có sản phẩm trong DB. Chạy db/storage.py trước.{C_RESET}")
+        print(f"{C_RED} Không có sản phẩm trong DB. Chạy db/storage.py trước.{C_RESET}")
         sys.exit(1)
 
     n = len(products)
@@ -389,7 +389,7 @@ def main():
     # ── Kiểm tra đã có embedding chưa ────────────────────────────────
     already_done = sum(1 for p in products if p.get("item_embedding"))
     if already_done == len(products) and FAISS_PATH.exists():
-        log(f"✅ Tất cả {already_done:,} SP đã có embedding và FAISS index tồn tại.", C_GREEN)
+        log(f" Tất cả {already_done:,} SP đã có embedding và FAISS index tồn tại.", C_GREEN)
         ans = input("  Re-generate lại không? [y/N]: ").strip().lower()
         if ans != "y":
             log("Bỏ qua. Load FAISS để kiểm tra chất lượng...", C_DIM)
@@ -435,7 +435,7 @@ def main():
     # ── 8. Thống kê cuối ─────────────────────────────────────────────
     size_mb    = FAISS_PATH.stat().st_size / 1_048_576
     total_time = time.time() - t_total
-    print(f"\n{C_GREEN}{C_BOLD}✅ HOÀN TẤT (v2)!{C_RESET}")
+    print(f"\n{C_GREEN}{C_BOLD} HOÀN TẤT!{C_RESET}")
     print(f"   Model     : {MODEL_NAME}")
     print(f"   Sản phẩm  : {n:,}")
     print(f"   Dim       : {embeddings.shape[1]}")

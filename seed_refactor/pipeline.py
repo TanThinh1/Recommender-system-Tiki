@@ -1,15 +1,3 @@
-"""
-╔══════════════════════════════════════════════════════════════════════╗
-║   PIPELINE — Post-processing cho recommendation candidates           ║
-║                                                                      ║
-║   run_pipeline() nhận raw candidates từ ALS hoặc FAISS, sau đó:     ║
-║     1. Lọc owned_ids / exclude_ids                                   ║
-║     2. (Tuỳ chọn) Enrich metadata từ DB                             ║
-║     3. Re-score / re-rank                                            ║
-║     4. Trả về top-N kết quả                                         ║
-╚══════════════════════════════════════════════════════════════════════╝
-"""
-
 from __future__ import annotations
 
 import logging
@@ -22,7 +10,7 @@ log = logging.getLogger("pipeline")
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 📐 INPUT SCHEMAS — bắt lỗi field name sai tại parse time
+#  INPUT SCHEMAS — bắt lỗi field name sai tại parse time
 # ══════════════════════════════════════════════════════════════════════
 class ProductMeta(TypedDict, total=False):
     """Schema cho metadata product lấy từ MongoDB.
@@ -63,7 +51,7 @@ DEFAULT_RATING_WEIGHT = 0.8   # trọng số cho product rating (0–5)
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 📐 OUTPUT SCHEMA
+#  OUTPUT SCHEMA
 # ══════════════════════════════════════════════════════════════════════
 @dataclass
 class PipelineItem:
@@ -82,7 +70,7 @@ class PipelineResult:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 🔧 INTERNAL STEPS
+#  INTERNAL STEPS
 # ══════════════════════════════════════════════════════════════════════
 def _filter(
     candidates : list[dict],
@@ -110,13 +98,13 @@ def _enrich_from_db(candidates: list[CandidateItem], db: Any) -> list[CandidateI
 
     try:
         ids = [c["product_id"] for c in candidates]
-        # ✅ FIX: query theo product_id (string), không phải _id (ObjectId)
-        # ✅ FIX: key dict dùng doc["product_id"] để khớp với candidates
+        #  query theo product_id (string), không phải _id (ObjectId)
+        #  key dict dùng doc["product_id"] để khớp với candidates
         docs = {
             doc["product_id"]: doc
             for doc in db.products.find(
                 {"product_id": {"$in": ids}},
-                # ✅ FIX: thêm rating_avg vào projection
+                #  FIX: thêm rating_avg vào projection
                 # ltr_model.py và server.js dùng "rating_avg" làm field rating SP
                 # nếu chỉ query "rating" mà DB lưu "rating_avg" → rating luôn = 0
                 {"product_id": 1, "price": 1, "category": 1,
@@ -152,27 +140,6 @@ def _rescore(
     score_weight  : float = DEFAULT_SCORE_WEIGHT,
     rating_weight : float = DEFAULT_RATING_WEIGHT,
 ) -> list[CandidateItem]:
-    """
-    Re-rank / re-score candidates.
-
-    Ưu tiên (4) LTR model (LightGBM) nếu đã train và load thành công.
-    Fallback về linear combination khi LTR chưa có.
-
-    ── LTR path ──────────────────────────────────────────────────────────
-    Features: price_norm, rating_norm, stock_flag, cat_purchase_count_norm
-    Output:   P(purchase) từ LightGBM, làm final_score
-    Stock=0   → final_score = 0.0 (đẩy xuống cuối)
-
-    ── Linear path (fallback) ────────────────────────────────────────────
-    final_score = score_weight × norm_score + rating_weight × norm_rating
-    Trọng số được normalize về tổng = 1.0
-    Stock=0   → final_score = 0.0
-
-    FIX Bug 3: dùng absolute clamp thay min-max relative normalization.
-    Root cause 0%: k-NN FAISS scores rất gần nhau (0.96, 0.95, 0.94)
-    → range ≈ 0.02 → toàn bộ norm_score ≈ 0 → final_score ≈ 0 → 0%.
-    Scores đã remap về [0,1] tại _faiss_similar → clamp là đủ an toàn.
-    """
     if not candidates:
         return candidates
 
@@ -216,7 +183,7 @@ def _rescore(
     score_w  = score_weight  / total_w
     rating_w = rating_weight / total_w
 
-    # ✅ FIX: Dùng absolute clamp thay cho min-max relative normalization.
+    #  Dùng absolute clamp thay cho min-max relative normalization.
     # Root cause 0%: k-NN FAISS trả về cosine scores rất gần nhau
     # (ví dụ 0.96, 0.95, 0.94) → rng = max-min ≈ 0.02 → cả nhóm norm_score ≈ 0
     # → final_score ≈ 0 → UI hiển thị 0%.
@@ -228,7 +195,7 @@ def _rescore(
         norm_score = min(max(float(raw_score), 0.0), 1.0)
 
         meta: ProductMeta = c.get("meta", {})
-        # FIX Bug 5: dùng rating_avg (field thực tế trong DB) với fallback sang rating
+        #  dùng rating_avg (field thực tế trong DB) với fallback sang rating
         rating      = float(meta.get("rating_avg") or meta.get("rating") or 0)
         norm_rating = min(rating / 5.0, 1.0)
 
@@ -241,7 +208,7 @@ def _rescore(
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 🚀 PUBLIC API
+#  PUBLIC API
 # ══════════════════════════════════════════════════════════════════════
 def run_pipeline(
     raw_candidates : list[CandidateItem],
@@ -254,28 +221,6 @@ def run_pipeline(
     rating_weight  : float = DEFAULT_RATING_WEIGHT,
     debug          : bool = False,
 ) -> PipelineResult:
-    """
-    Chạy toàn bộ post-processing pipeline.
-
-    Parameters
-    ----------
-    raw_candidates : list[dict]
-        Mỗi phần tử có ít nhất {"product_id": str, "score": float}
-        (hoặc "similarity" thay cho "score" với FAISS output).
-    user_id        : str   — dùng cho logging / future personalization.
-    db             : MongoDB db object hoặc None.
-    n              : int   — số kết quả tối đa trả về.
-    owned_ids      : set   — product_id user đã mua/sở hữu.
-    exclude_ids    : set   — product_id cần loại bỏ (vd: chính sản phẩm đang xem).
-    score_weight   : float — trọng số ALS/FAISS score (mặc định 0.85).
-    rating_weight  : float — trọng số product rating (mặc định 0.15).
-                             Hai giá trị sẽ được normalize về tổng = 1.0.
-    debug          : bool  — kèm debug_info trong kết quả.
-
-    Returns
-    -------
-    PipelineResult
-    """
     owned_ids   = owned_ids   or set()
     exclude_ids = exclude_ids or set()
 

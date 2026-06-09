@@ -1,6 +1,5 @@
 import os
 import re
-from datetime import datetime
 
 # HẰNG SỐ CHÍNH
 TARGET_TOTAL = 5_400 
@@ -133,14 +132,6 @@ def catid_from_url(url: str) -> int:
         f"URL phải có dạng https://tiki.vn/ten-danh-muc/cSỐ"
     )
 
-# CONSOLE COLORS & LOGGING
-C_RESET = "\033[0m"
-C_GREEN = "\033[92m"
-C_RED   = "\033[91m"
-C_CYAN  = "\033[96m"
-C_BOLD  = "\033[1m"
-C_DIM   = "\033[2m"
-
-def log(msg: str, color: str = "", indent: int = 0) -> None:
-    ts = datetime.now().strftime("%H:%M:%S")
-    print(f"{C_DIM}[{ts}]{C_RESET} {'  ' * indent}{color}{msg}{C_RESET}")
+# CONSOLE COLORS & LOGGING — import từ utils/console.py để tránh duplicate
+# config.py chỉ re-export để code cũ import từ đây vẫn hoạt động
+from utils.console import log, C_RESET, C_GREEN, C_RED, C_CYAN, C_BOLD, C_DIM  # noqa: F401

@@ -1,4 +1,5 @@
 import os
+import threading
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -17,15 +18,22 @@ DB_NAME = (
 )
 
 _client = None
+_lock   = threading.Lock()   # FIX: tránh race condition khi nhiều thread gọi get_db() đồng thời
 
 def get_db():
     global _client
-    if _client is None:
-        _client = MongoClient(MONGO_URI)
+    # Fast path — không cần acquire lock nếu đã có client
+    if _client is not None:
+        return _client[DB_NAME]
+    with _lock:
+        # Double-check sau khi acquire lock
+        if _client is None:
+            _client = MongoClient(MONGO_URI)
     return _client[DB_NAME]
 
 def close_db():
     global _client
-    if _client:
-        _client.close()
-        _client = None
+    with _lock:
+        if _client:
+            _client.close()
+            _client = None

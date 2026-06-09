@@ -2,8 +2,15 @@
 db/storage.py — Upsert an toàn và insert interactions.
 """
 
+import sys
+import os
 from datetime import datetime
-from seed_refactor.utils.progress import tqdm
+
+# Thêm thư mục cha (seed_refactor/) vào path để import utils và db đúng
+# dù chạy file từ bất kỳ thư mục nào
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from utils.progress import tqdm
 
 try:
     from pymongo import UpdateOne, errors
@@ -67,7 +74,7 @@ def bulk_upsert(collection, docs: list[dict], key_field: str, batch: int = 500):
     if not docs:
         return
     INSERT_ONLY_FIELDS = {"created_at", "name"}
-    pbar = tqdm(range(0, len(docs), batch), desc=f"  🔄 {collection.name}", unit="batch", ncols=90)
+    pbar = tqdm(range(0, len(docs), batch), desc=f"   {collection.name}", unit="batch", ncols=90)
     n_upserted = n_modified = 0
     for i in pbar:
         chunk = docs[i:i+batch]
@@ -93,12 +100,12 @@ def insert_interactions_safe(collection, interactions: list[dict], batch: int = 
         return
     from pymongo.errors import BulkWriteError
 
-    # ✅ Chuẩn hoá timestamp trước khi insert
+    #  Chuẩn hoá timestamp trước khi insert
     interactions = _normalize_interactions(interactions)
 
     pbar = tqdm(
         range(0, len(interactions), batch),
-        desc=f"  💾 {collection.name}", unit="batch", ncols=90,
+        desc=f"   {collection.name}", unit="batch", ncols=90,
     )
     n_inserted = 0
     for i in pbar:
@@ -117,27 +124,15 @@ def insert_interactions_safe(collection, interactions: list[dict], batch: int = 
 if __name__ == "__main__":
     """
     storage.py __main__ — Tiện ích verify và tạo lại indexes.
-
-    Không còn đọc JSON files nữa — tất cả data đã được từng bước
-    (tiki_crawler, product, crawl_reviews, user, interaction) lưu thẳng vào MongoDB.
-
-    Dùng script này để:
-      - Kiểm tra số lượng documents trong từng collection
-      - Tạo lại indexes nếu cần (vd: sau khi restore backup)
-      - Verify timestamp type trong interactions
     """
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent))
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-
-    from seed_refactor.db.connection import get_db
+    # sys.path đã được set ở đầu file — import thẳng
+    from db.connection import get_db
 
     db = get_db()
 
     # ── Verify collections ────────────────────────────────────────────
     collections = ["raw_products", "products", "reviews", "users", "interactions"]
-    print("\n📊 Thống kê collections:")
+    print("\n Thống kê collections:")
     for col in collections:
         count = db[col].count_documents({})
         print(f"   {col:<20} {count:>10,} docs")
@@ -146,10 +141,10 @@ if __name__ == "__main__":
     sample = db.interactions.find_one({"timestamp": {"$exists": True}})
     if sample:
         ts_type = type(sample["timestamp"]).__name__
-        status  = "✅" if ts_type == "datetime" else "⚠️ "
+        status  = "ok" if ts_type == "datetime" else "not ok"
         print(f"\n{status} interactions.timestamp type: {ts_type}")
     else:
-        print("\n⚠️  Không tìm thấy interaction nào có timestamp")
+        print("\n  Không tìm thấy interaction nào có timestamp")
 
     # ── Recreate indexes ──────────────────────────────────────────────
     print("\n🔧 Tạo lại indexes...")
@@ -183,4 +178,4 @@ if __name__ == "__main__":
     db.interactions.create_index("action")
     db.interactions.create_index("sentiment")
 
-    print("✅ Indexes đã được tạo/cập nhật")
+    print(" Indexes đã được tạo/cập nhật")

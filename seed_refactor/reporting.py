@@ -2,10 +2,10 @@ from collections import Counter
 from utils.console import C_BOLD, C_CYAN, C_RESET, log_section
 
 def print_quality_report(products: list, users: list, interactions: list) -> dict:
-    log_section("📊 BÁO CÁO CHẤT LƯỢNG DỮ LIỆU")
+    log_section(" BÁO CÁO CHẤT LƯỢNG DỮ LIỆU")
 
     with_pop = sum(1 for p in products if p.get("popularity_score",0)>0)
-    print(f"\n🛍️  Sản phẩm: {len(products):,}")
+    print(f"\n  Sản phẩm: {len(products):,}")
     price_range_counts = Counter(p.get("price_range") for p in products)
     for pr in ["budget","mid","premium"]:
         cnt = price_range_counts.get(pr,0)
@@ -31,7 +31,7 @@ def print_quality_report(products: list, users: list, interactions: list) -> dic
     unique_pairs = len({(i["user_id"], i["product_id"]) for i in interactions})
     sparsity_row = 1 - len(interactions)/(len(users)*len(products)) if users and products else 0
     sparsity_cf = 1 - unique_pairs/(len(users)*len(products)) if users and products else 0
-    avg_weight = sum(i["weight"] for i in interactions)/len(interactions) if interactions else 0
+    avg_weight = sum(i.get("weight", 0) for i in interactions)/len(interactions) if interactions else 0
 
     print(f"\n Interactions: {len(interactions):,}")
     print(f"   purchase    : {purchases:,} ({purchases/len(interactions)*100:.1f}%)")
@@ -56,14 +56,28 @@ def print_quality_report(products: list, users: list, interactions: list) -> dic
 
 
 if __name__ == "__main__":
-    import json
-    from pathlib import Path
-    for fname in ["products.json", "users.json", "interactions.json"]:
-        if not Path(fname).exists():
-            print(f" Thiếu {fname}. Hãy chạy đầy đủ các bước trước.")
-            exit(1)
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
-    products = json.load(open("products.json", encoding="utf-8"))
-    users = json.load(open("users.json", encoding="utf-8"))
-    interactions = json.load(open("interactions.json", encoding="utf-8"))
+    from db.connection import get_db
+
+    print("Đang kết nối MongoDB...")
+    db = get_db()
+
+    print("Đang load data từ MongoDB (có thể mất vài giây)...")
+    products     = list(db.products.find({}, {"_id": 0}))
+    users        = list(db.users.find({}, {"_id": 0}))
+    interactions = list(db.interactions.find({}, {"_id": 0}))
+
+    if not products:
+        print("  Collection 'products' trống. Hãy chạy bước seed data trước.")
+        exit(1)
+    if not users:
+        print("  Collection 'users' trống. Hãy chạy bước seed data trước.")
+        exit(1)
+    if not interactions:
+        print("  Collection 'interactions' trống. Hãy chạy bước seed data trước.")
+        exit(1)
+
     print_quality_report(products, users, interactions)

@@ -531,12 +531,12 @@ for pid in product_pop:
     pop = product_pop.get(pid, 0)
     combined_score[pid] = 0.7 * (pc / max_pc) + 0.3 * (pop / max_pop if max_pop > 0 else 0)
 
-popular_items = sorted(combined_score, key=combined_score.get, reverse=True)[:100]
+popular_items = sorted(combined_score.items(), key=lambda x: x[1], reverse=True)[:100]
 
-# Dedup giữ thứ tự
+# Dedup giữ thứ tự (combined_score.items() đã unique, nhưng giữ lại để an toàn)
 seen = set()
-popular_items = [p for p in popular_items if not (p in seen or seen.add(p))]
-log(f"Top-100 fallback items sẵn sàng", C_GREEN, indent=2)
+popular_items = [(p, s) for p, s in popular_items if not (p in seen or seen.add(p))]
+log(f"Top-100 fallback items sẵn sàng (format: [(pid, score)])", C_GREEN, indent=2)
 
 # ══════════════════════════════════════════════════════════════════════
 # 9. LƯU MODEL
@@ -634,7 +634,7 @@ for uid in sample_users:
     print(f"  User {uid[:12]}...")
     print(f"    Đã mua: {', '.join(bought_names) or '(none)'}")
     if is_degenerate:
-        print(f"    ⚠️  ALS scores quá thấp ({max_score:.4f}) → dùng popular fallback")
+        print(f"     ALS scores quá thấp ({max_score:.4f}) → dùng popular fallback")
         for rank, pid in enumerate(popular_items[:5], 1):
             name = product_name.get(pid, pid)[:45]
             cat  = product_cat.get(pid, "")

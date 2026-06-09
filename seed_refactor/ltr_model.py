@@ -77,7 +77,10 @@ def build_features(db) -> pd.DataFrame:
 
     df["price_norm"]              = (df["price"].fillna(0).clip(upper=MAX_PRICE) / MAX_PRICE).astype(float)
     df["rating_norm"]             = (df["product_rating"].fillna(0).clip(upper=5.0) / 5.0).astype(float)
-    df["stock_flag"]              = (df["stock"].fillna(0) > 0).astype(int)
+    # stock=None nghĩa là chưa có dữ liệu (unknown), KHÔNG phải hết hàng.
+    # fillna(0) cũ → None bị coi là stock=0 → stock_flag=0 → zeroes out toàn bộ score.
+    # Thay bằng fillna(1): nếu không biết tồn kho, giả định còn hàng (safe default).
+    df["stock_flag"]              = (df["stock"].fillna(1) > 0).astype(int)
     df["cat_purchase_count_norm"] = (df["cat_purchase_count"].fillna(0).clip(upper=20) / 20).astype(float)
 
     log.info(f"Feature matrix: {len(df):,} rows × {len(FEATURES)} features")
@@ -170,8 +173,9 @@ def quick_eval(artifact: dict, db) -> None:
 
     auc      = roc_auc_score(y, probs)
     accuracy = accuracy_score(y, preds)
-    log.info(f"In-sample AUC={auc:.4f}  Accuracy={accuracy:.4f}")
-    log.info("(Lưu ý: đây là in-sample — cần offline eval riêng để đánh giá tổng quát hoá)")
+    # dùng WARNING thay vì INFO để tránh nhầm đây là offline validation thực
+    log.warning(f"In-sample AUC={auc:.4f}  Accuracy={accuracy:.4f}")
+    log.warning("(In-sample — KHÔNG phải out-of-sample. Cần offline eval riêng để đánh giá tổng quát hoá)")
 
 
 # ══════════════════════════════════════════════════════════════════════

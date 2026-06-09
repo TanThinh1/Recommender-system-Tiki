@@ -1,5 +1,5 @@
 {
-  "trained_at": "2026-05-25T21:21:29.186488",
+  "trained_at": "2026-06-09T18:13:08.847091",
   "model_version": "v5",
   "n_users": 20697,
   "n_products": 1836,
@@ -40,24 +40,24 @@
     }
   },
   "metrics": {
-    "precision@5": 0.1005,
+    "precision@5": 0.1007,
     "precision@10": 0.0534,
     "precision@20": 0.0291,
-    "recall@5": 0.5016,
-    "recall@10": 0.5326,
-    "recall@20": 0.581,
-    "ndcg@5": 0.4282,
-    "ndcg@10": 0.4379,
-    "ndcg@20": 0.4501,
-    "hit_rate@5": 0.502,
-    "hit_rate@10": 0.5329,
-    "hit_rate@20": 0.5813,
+    "recall@5": 0.5024,
+    "recall@10": 0.5334,
+    "recall@20": 0.5815,
+    "ndcg@5": 0.4315,
+    "ndcg@10": 0.4419,
+    "ndcg@20": 0.4543,
+    "hit_rate@5": 0.5027,
+    "hit_rate@10": 0.5337,
+    "hit_rate@20": 0.5818,
     "coverage@5": 0.3829,
-    "coverage@10": 0.4052,
-    "coverage@20": 0.4292,
-    "composite@5": 0.3265,
-    "composite@10": 0.322,
-    "composite@20": 0.3341
+    "coverage@10": 0.402,
+    "coverage@20": 0.4276,
+    "composite@5": 0.3276,
+    "composite@10": 0.3231,
+    "composite@20": 0.3351
   },
   "popular_items_count": 100
 }

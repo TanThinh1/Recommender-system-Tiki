@@ -125,11 +125,9 @@ def _enrich_from_db(candidates: list[CandidateItem], db: Any) -> list[CandidateI
             doc["product_id"]: doc
             for doc in db.products.find(
                 {"product_id": {"$in": ids}},
-                #  FIX: thêm rating_avg vào projection
-                # ltr_model.py và server.js dùng "rating_avg" làm field rating SP
-                # nếu chỉ query "rating" mà DB lưu "rating_avg" → rating luôn = 0
+                # thêm popularity_score — dùng khi rating_avg=None (SP chưa có review)
                 {"product_id": 1, "price": 1, "category": 1,
-                 "rating": 1, "rating_avg": 1, "stock": 1},
+                 "rating": 1, "rating_avg": 1, "stock": 1, "popularity_score": 1},
             )
         }
         enriched_count = 0
@@ -139,11 +137,14 @@ def _enrich_from_db(candidates: list[CandidateItem], db: Any) -> list[CandidateI
             raw_meta.pop("product_id", None)
             # Cast sang ProductMeta để downstream code dùng typed access
             meta: ProductMeta = {
-                "price"      : float(raw_meta.get("price") or 0),
-                "rating"     : float(raw_meta.get("rating") or 0),
-                "rating_avg" : float(raw_meta.get("rating_avg") or 0),
-                "stock"      : int(raw_meta.get("stock") or 0),
-                "category"   : str(raw_meta.get("category") or ""),
+                "price"            : float(raw_meta.get("price") or 0),
+                "rating"           : float(raw_meta.get("rating") or 0),
+                "rating_avg"       : float(raw_meta.get("rating_avg") or 0),
+                "popularity_score" : float(raw_meta.get("popularity_score") or 0),
+                # stock=None → giữ None (không biết tồn kho ≠ hết hàng)
+                # int(None or 0) = 0 → _is_out_of_stock = True → score = 0 — SAI
+                "stock"    : int(raw_meta["stock"]) if raw_meta.get("stock") is not None else None,
+                "category" : str(raw_meta.get("category") or ""),
             }
             c["meta"] = meta
             if any(v for v in meta.values()):

@@ -8,10 +8,16 @@ const { MongoClient } = require("mongodb");
 const app = express();
 
 // ── Config ──────────────────────────────────────────────────────────
-const PORT      = process.env.PORT     || 3000;
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017";
-const DB_NAME   = process.env.DB_NAME  || "tiki_recommendation";
-const ML_API    = (process.env.ML_API_URL || "http://localhost:8000").replace(/\/$/, "");
+const PORT       = process.env.PORT        || 3000;
+const MONGO_URI  = process.env.MONGO_URI   || "mongodb://localhost:27017";
+const DB_NAME    = process.env.DB_NAME     || "tiki_recommendation";
+const ML_API     = (process.env.ML_API_URL || "http://localhost:8000").replace(/\/$/, "");
+const ML_API_KEY = process.env.API_KEY     || "";
+
+// Debug: in ra để xác nhận .env được đọc đúng
+console.log(`[config] ML_API     = ${ML_API}`);
+console.log(`[config] API_KEY    = ${ML_API_KEY ? ML_API_KEY.slice(0,8) + "..." : "⚠️  CHƯA SET — kiểm tra .env"}`);
+
 
 // ── Escape regex metacharacters để phòng ReDoS ──────────────────────
 // Áp dụng cho mọi input từ query string trước khi dùng $regex trong MongoDB.
@@ -80,6 +86,7 @@ async function mlGet(path, params = {}) {
   const res = await axios.get(`${ML_API}${path}`, {
     params,
     timeout: 15000,
+    headers: { "X-API-Key": ML_API_KEY },
   });
   return res.data;
 }
@@ -248,9 +255,10 @@ app.get("/api/recommend/similar/:id", async (req, res) => {
 
     const data = await mlGet(`/similar/${encodeURIComponent(id)}`, { n });
 
-    // Enrich metadata
+    // Enrich metadata — /similar trả về key "similar" (không phải "items")
     const db  = await getDb();
-    const ids = (data.items || []).map(i => i.product_id);
+    const similarItems = data.similar || data.items || [];
+    const ids = similarItems.map(i => i.product_id);
     let metaMap = {};
     if (ids.length > 0) {
       const docs = await db.collection("products")
@@ -261,7 +269,7 @@ app.get("/api/recommend/similar/:id", async (req, res) => {
       metaMap = Object.fromEntries(docs.map(d => [d.product_id, d]));
     }
 
-    const enriched = (data.items || []).map(item => ({
+    const enriched = similarItems.map(item => ({
       ...item,
       ...(metaMap[item.product_id] || {}),
     }));
@@ -324,6 +332,8 @@ app.post("/api/interactions", async (req, res) => {
       action,
       weight: weightMap[action] || 0.3,
       source : source || "frontend",
+    }, {
+      headers: { "X-API-Key": ML_API_KEY },
     }).catch(() => {}); // ignore ML API errors
 
     res.json({ status: "ok", message: "Tương tác đã được ghi nhận", doc });

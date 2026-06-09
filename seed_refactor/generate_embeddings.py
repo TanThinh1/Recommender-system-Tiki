@@ -1,13 +1,3 @@
-"""    
-  Chức năng:                                                         
-  1. Load sản phẩm từ MongoDB                                        
-  2. Encode text → vector 384 chiều (sentence-transformers)          
-  3. Lưu embedding vào MongoDB field item_embedding                  
-  4. Build FAISS index → lưu file faiss_index.bin                   
-  5. Lưu metadata index (type, nlist, nprobe) → faiss_meta.json     
-  6. Kiểm tra chất lượng: thử query nearest neighbors cho vài sản phẩm mẫu 
-"""
-
 from __future__ import annotations
 
 import json
@@ -250,14 +240,14 @@ def quality_check(
             name = near.get("name", "?")[:45]
             cat  = near.get("category", "?")
             sim  = f"{score:.3f}"
-            mark = "✅" if cat == prod["category"] else "⚠️ "
+            mark = "ok" if cat == prod["category"] else " not ok"
             print(f"    {rank}. {mark} [{sim}] {name}  [{cat}]")
 
     print(f"\n  {'─'*56}")
-    print(f"  ✅ = cùng danh mục (tốt)  ⚠️  = khác danh mục (kiểm tra lại)")
+    print(f"  ok = cùng danh mục (tốt)  not ok = khác danh mục (kiểm tra lại)")
 
 # ══════════════════════════════════════════════════════════════════════
-# LƯU / ĐỌC FAISS  [v2: kèm meta]
+# LƯU / ĐỌC FAISS
 # ══════════════════════════════════════════════════════════════════════
 def save_faiss(index: faiss.Index, id_map: list[str], meta: dict):
     """Lưu FAISS index, ID map, và metadata."""
@@ -329,7 +319,7 @@ def save_embeddings_to_mongo(db, products: list[dict], embeddings: np.ndarray):
 # ══════════════════════════════════════════════════════════════════════
 def main():
     print(f"\n{C_BOLD}{C_CYAN}{'═'*60}{C_RESET}")
-    print(f"{C_BOLD}{C_CYAN}  🔢  GENERATE EMBEDDINGS + FAISS INDEX  v2{C_RESET}")
+    print(f"{C_BOLD}{C_CYAN}    GENERATE EMBEDDINGS + FAISS INDEX  v2{C_RESET}")
     print(f"{C_BOLD}{C_CYAN}{'═'*60}{C_RESET}\n")
     print(f"  IndexFlatIP  : N ≤ {IVFFLAT_THRESHOLD:,} SP  (exact search)")
     print(f"  IndexIVFFlat : N >  {IVFFLAT_THRESHOLD:,} SP  (ANN, nprobe={round(64*IVFFLAT_NPROBE_RATIO)}..)\n")
@@ -338,7 +328,7 @@ def main():
     try:
         from sentence_transformers import SentenceTransformer
         import faiss
-        log("✅ sentence-transformers và faiss-cpu đã cài", C_GREEN)
+        log(" sentence-transformers và faiss-cpu đã cài", C_GREEN)
     except ImportError as e:
         print(f"{C_RED} Thiếu thư viện: {e}{C_RESET}")
         print(f"{C_RED} Chạy: pip install sentence-transformers faiss-cpu numpy{C_RESET}")
@@ -348,7 +338,7 @@ def main():
     try:
         from db.connection import get_db
         db = get_db()
-        log("✅ Kết nối MongoDB thành công", C_GREEN)
+        log(" Kết nối MongoDB thành công", C_GREEN)
     except Exception as e:
         print(f"{C_RED} MongoDB error: {e}{C_RESET}")
         sys.exit(1)

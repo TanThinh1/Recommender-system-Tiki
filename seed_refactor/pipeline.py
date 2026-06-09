@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import pickle
@@ -7,6 +8,26 @@ from dataclasses import dataclass, field
 from typing import Any, Optional, TypedDict
 
 log = logging.getLogger("pipeline")
+
+
+def _verify_and_load_pickle(path: str) -> object:
+    """Load pickle với SHA-256 integrity check. Xem recommend_api.py để biết cách tạo .sha256."""
+    import pathlib
+    p        = pathlib.Path(path)
+    raw      = p.read_bytes()
+    hash_path = p.with_suffix(p.suffix + ".sha256")
+    if hash_path.exists():
+        expected = hash_path.read_text().strip()
+        actual   = hashlib.sha256(raw).hexdigest()
+        if actual != expected:
+            raise RuntimeError(
+                f"Pickle integrity FAILED: {p.name} — hash không khớp. "
+                "Retrain và cập nhật file .sha256."
+            )
+        log.info(f"Pickle integrity OK ✓  {p.name}")
+    else:
+        log.warning(f"Không có {hash_path.name} — bỏ qua integrity check cho {p.name}.")
+    return pickle.loads(raw)  # noqa: S301
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -40,7 +61,7 @@ _ltr       = None
 _LTR_PATH  = os.path.join(os.path.dirname(__file__), "ltr_model.pkl")
 if os.path.exists(_LTR_PATH):
     try:
-        _ltr = pickle.load(open(_LTR_PATH, "rb"))
+        _ltr = _verify_and_load_pickle(_LTR_PATH)
         log.info(f"LTR model loaded ✓  features={_ltr['features']}")
     except Exception as _e:
         log.warning(f"Không load được LTR model, fallback về linear: {_e}")

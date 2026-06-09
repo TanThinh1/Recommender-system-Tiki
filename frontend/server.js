@@ -13,26 +13,69 @@ const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017";
 const DB_NAME   = process.env.DB_NAME  || "tiki_recommendation";
 const ML_API    = (process.env.ML_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
+// ── Escape regex metacharacters để phòng ReDoS ──────────────────────
+// Áp dụng cho mọi input từ query string trước khi dùng $regex trong MongoDB.
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // ── Middleware ───────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// ── MongoDB Connection (lazy singleton) ──────────────────────────────
+// ── MongoDB Connection (lazy singleton với pool + reconnect) ─────────
 let _client = null;
+let _connecting = false;
+
 async function getDb() {
-  if (!_client) {
+  if (_client) return _client.db(DB_NAME);
+
+  // Tránh tạo nhiều connection song song khi cold-start
+  if (_connecting) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return getDb();
+  }
+
+  _connecting = true;
+  try {
     _client = new MongoClient(MONGO_URI, {
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 5000,
+      serverSelectionTimeoutMS : 5_000,
+      connectTimeoutMS         : 5_000,
+      socketTimeoutMS          : 30_000,
+      // pool config — tránh connection leak dưới tải
+      minPoolSize              : 2,
+      maxPoolSize              : 20,
+      maxIdleTimeMS            : 60_000,
+      waitQueueTimeoutMS       : 5_000,
     });
     await _client.connect();
     console.log(" MongoDB connected →", MONGO_URI);
+
+    // tự reset client khi server đóng connection
+    _client.on("serverClosed", () => {
+      console.warn(" MongoDB serverClosed — sẽ reconnect ở request tiếp theo");
+      _client = null;
+    });
+    _client.on("error", (err) => {
+      console.error(" MongoDB error:", err.message);
+    });
+  } finally {
+    _connecting = false;
   }
+
   return _client.db(DB_NAME);
 }
 
-// ── ML API proxy helper ──────────────────────────────────────────────
+// ── Validate query param n (1–50, default 10) ───────────────────────
+// server.js không được dựa vào ML API để bắt n không hợp lệ.
+// Validate độc lập để fail-fast và tránh coupling với schema ML API.
+function parseN(raw, defaultVal = 10) {
+  const n = parseInt(raw || String(defaultVal), 10);
+  if (isNaN(n) || n < 1) return 1;
+  if (n > 50)            return 50;
+  return n;
+}
 async function mlGet(path, params = {}) {
   const res = await axios.get(`${ML_API}${path}`, {
     params,
@@ -50,15 +93,16 @@ app.get("/api/products", async (req, res) => {
     const page     = Math.max(1, parseInt(req.query.page  || "1"));
     const limit    = Math.min(50, Math.max(1, parseInt(req.query.limit || "20")));
     const category = req.query.category || null;
-    const search   = req.query.search   || null;
+    const rawSearch = req.query.search   || null;
+    const search    = rawSearch ? rawSearch.trim().slice(0, 100) : null;  // cap 100 ký tự
     const sort_by  = req.query.sort_by  || "popularity_score";
 
     // Build filter
     const filter = {};
-    if (category) filter.category = category;
+    if (category) filter.category = { $regex: `^${escapeRegex(category)}$`, $options: "i" };
     if (search)   filter.$or = [
-      { name:  { $regex: search, $options: "i" } },
-      { brand: { $regex: search, $options: "i" } },
+      { name:  { $regex: escapeRegex(search), $options: "i" } },
+      { brand: { $regex: escapeRegex(search), $options: "i" } },
     ];
 
     // Sort map
@@ -149,8 +193,8 @@ app.get("/api/products/:id", async (req, res) => {
 app.get("/api/recommend/user/:id", async (req, res) => {
   try {
     const { id }   = req.params;
-    const n        = parseInt(req.query.n     || "10");
-    const alpha    = parseFloat(req.query.alpha || "0.7");   // ALS weight trong hybrid
+    const n        = parseN(req.query.n);
+    const alpha    = Math.min(1, Math.max(0, parseFloat(req.query.alpha || "0.7")));
     const debug    = req.query.debug === "true";
 
     // Gọi hybrid endpoint (ALS + FAISS)
@@ -200,7 +244,7 @@ app.get("/api/recommend/user/:id", async (req, res) => {
 app.get("/api/recommend/similar/:id", async (req, res) => {
   try {
     const { id }  = req.params;
-    const n       = parseInt(req.query.n || "10");
+    const n       = parseN(req.query.n);
 
     const data = await mlGet(`/similar/${encodeURIComponent(id)}`, { n });
 
@@ -360,14 +404,16 @@ app.get("/api/stats", async (req, res) => {
 app.get("/api/users", async (req, res) => {
   try {
     const db     = await getDb();
-    const search = req.query.search || null;
+    const rawSearch = req.query.search || null;
+    const search    = rawSearch ? rawSearch.trim().slice(0, 100) : null;
     const limit  = Math.min(20, parseInt(req.query.limit || "20"));
 
     const filter = {};
-    if (search && search.trim()) {
+    if (search) {
+      const escaped = escapeRegex(search);
       filter.$or = [
-        { name:    { $regex: search, $options: "i" } },
-        { user_id: { $regex: search, $options: "i" } },
+        { name:    { $regex: escaped, $options: "i" } },
+        { user_id: { $regex: escaped, $options: "i" } },
       ];
     }
 

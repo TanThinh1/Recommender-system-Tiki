@@ -1,10 +1,8 @@
 from collections import Counter
-from seed_refactor.config import C_BOLD, C_CYAN, C_RESET
+from utils.console import C_BOLD, C_CYAN, C_RESET, log_section
 
 def print_quality_report(products: list, users: list, interactions: list) -> dict:
-    print(f"\n{C_BOLD}{C_CYAN}{'═'*60}{C_RESET}")
-    print(f"{C_BOLD}{C_CYAN}  📊 BÁO CÁO CHẤT LƯỢNG DỮ LIỆU{C_RESET}")
-    print(f"{C_BOLD}{C_CYAN}{'═'*60}{C_RESET}")
+    log_section("📊 BÁO CÁO CHẤT LƯỢNG DỮ LIỆU")
 
     with_pop = sum(1 for p in products if p.get("popularity_score",0)>0)
     print(f"\n🛍️  Sản phẩm: {len(products):,}")
@@ -44,7 +42,7 @@ def print_quality_report(products: list, users: list, interactions: list) -> dic
     print(f"   Row sparsity: {sparsity_row*100:.2f}%")
     print(f"   CF sparsity : {sparsity_cf*100:.2f}%")
     print(f"   Avg weight: {avg_weight:.3f}")
-    print(f"{C_BOLD}{C_CYAN}{'═'*60}{C_RESET}\n")
+    log_section("═" * 60)
 
     return {
         "num_products": len(products),

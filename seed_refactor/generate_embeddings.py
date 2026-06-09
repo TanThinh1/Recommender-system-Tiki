@@ -41,13 +41,7 @@ IVFFLAT_THRESHOLD = 50_000 # Nếu >50K SP → dùng IVFFlat, nếu ≤50K SP �
 IVFFLAT_NPROBE_RATIO = 0.10   # nprobe = nlist * 0.1, clamp về [16, 256]
 
 # Console colors
-C_RESET = "\033[0m"; C_GREEN = "\033[92m"; C_CYAN = "\033[96m"
-C_RED   = "\033[91m"; C_BOLD  = "\033[1m";  C_DIM  = "\033[2m"
-C_YEL   = "\033[93m"
-
-def log(msg, color="", indent=0):
-    ts = datetime.now().strftime("%H:%M:%S")
-    print(f"{C_DIM}[{ts}]{C_RESET} {'  ' * indent}{color}{msg}{C_RESET}")
+from utils.console import log, C_RESET, C_GREEN, C_CYAN, C_RED, C_BOLD, C_DIM, C_YEL
 
 # XÂY DỰNG TEXT ĐỂ ENCODE
 def build_text(product: dict) -> str:

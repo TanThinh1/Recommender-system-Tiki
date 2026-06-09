@@ -21,13 +21,7 @@ warnings.filterwarnings("ignore")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
 # ── Console colors ───────────────────────────────────────────────────
-C_RESET = "\033[0m"; C_GREEN = "\033[92m"; C_RED = "\033[91m"
-C_CYAN  = "\033[96m"; C_BOLD = "\033[1m";  C_DIM = "\033[2m"
-C_YEL   = "\033[93m"
-
-def log(msg, color="", indent=0):
-    ts = datetime.now().strftime("%H:%M:%S")
-    print(f"{C_DIM}[{ts}]{C_RESET} {'  '*indent}{color}{msg}{C_RESET}")
+from utils.console import log, C_RESET, C_GREEN, C_RED, C_CYAN, C_BOLD, C_DIM, C_YEL
 
 # ══════════════════════════════════════════════════════════════════════
 # ⚙️  CẤU HÌNH
